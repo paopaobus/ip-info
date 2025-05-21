@@ -1,0 +1,10 @@
+port: 8080
+
+ip:
+  autoUpdate: true
+  path: ./db/
+  dbDownUrl: "https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz"
+  accountId: ""
+  licenseKey: ""
+
+  
