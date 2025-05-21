@@ -35,7 +35,6 @@ type GeoIPService struct {
 
 func NewGeoIPService() *GeoIPService {
 	service := &GeoIPService{}
-	service.reloadDb(true)
 	if config.Cfg.Ip.AutoUpdate {
 		go func() {
 			// 使用 Cron 表达式设置任务在每周的周一 10 点执行
@@ -46,6 +45,13 @@ func NewGeoIPService() *GeoIPService {
 		}()
 	}
 	return service
+}
+
+func (s *GeoIPService) Init() {
+	b := s.reloadDb()
+	if !b {
+		panic("加载数据库失败")
+	}
 }
 
 func (s *GeoIPService) AutoUpdate() {
@@ -70,7 +76,7 @@ func (s *GeoIPService) AutoUpdate() {
 
 	if localLastModified < lastModified {
 		if s.updateDb() {
-			s.reloadDb(false)
+			s.reloadDb()
 		}
 	}
 }
@@ -123,34 +129,32 @@ func (s *GeoIPService) updateDb() bool {
 	return true
 }
 
-func (s *GeoIPService) reloadDb(retry bool) bool {
+func (s *GeoIPService) reloadDb() bool {
 	dbPath := filepath.Join(config.Cfg.Ip.Path, filename)
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		if os.IsNotExist(err) {
-			err1 := os.MkdirAll(config.Cfg.Ip.Path, 0755)
-			if err1 != nil {
-				log.Error("创建数据库目录失败:", err1.Error())
+			err = os.MkdirAll(config.Cfg.Ip.Path, 0755)
+			if err != nil {
+				log.Error("创建数据库目录失败:", err.Error())
 				return false
 			}
 		}
-		if config.Cfg.Ip.AutoUpdate && retry {
-			if !s.updateDb() {
-				return s.reloadDb(false)
-			}
+		if !s.updateDb() {
+			log.Error("ip数据库文件下载失败")
+			return false
 		}
-		log.Error("ip数据库文件不存在 加载失败")
+	}
+	newDb, err := geoip2.Open(dbPath)
+	if err != nil {
+		log.Error("ip数据库加载失败:", err)
 		return false
 	}
 	// 关闭旧的reader
 	if geoDb != nil {
 		_ = geoDb.Close()
 	}
-	var err error
-	geoDb, err = geoip2.Open(dbPath)
-	if err != nil {
-		log.Error("ip数据库加载失败:", err)
-		return false
-	}
+	// 将新的数据库实例赋值给全局变量
+	geoDb = newDb
 	return true
 }
 

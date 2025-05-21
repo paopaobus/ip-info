@@ -18,7 +18,8 @@ var e = echo.New()
 
 func main() {
 	config.InitConfig()
-	_ = NewGeoIPService()
+	s := NewGeoIPService()
+	s.Init()
 
 	// api
 	e.GET("/:ip", QueryIp)
